@@ -1,12 +1,12 @@
 // src/lib/types.ts
 export interface Command {
-  id: string;
-  trigger: string;
-  response: string;
-  description: string;
-  isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+    id: number;
+    trigger: string;
+    response: string;
+    description: string;
+    is_active: boolean; 
+    created_at: string;
+    updated_at: string;
 }
 
 export interface WhatsAppStatus {

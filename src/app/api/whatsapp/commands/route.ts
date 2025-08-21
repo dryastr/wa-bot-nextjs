@@ -1,89 +1,187 @@
 // src/app/api/whatsapp/commands/route.ts
+// ✅ SIMPLIFIED VERSION - No circular calls, direct Laravel communication
+
 import { NextRequest, NextResponse } from 'next/server';
-import { whatsappBot } from '@/lib/whatsapp';
+import axios from 'axios';
+
+const LARAVEL_API_URL = 'http://127.0.0.1:8000/api/whatsapp/commands';
+
+// ✅ Simple axios client
+const laravelApi = axios.create({
+  baseURL: 'http://127.0.0.1:8000/api/whatsapp',
+  timeout: 8000,
+  headers: {
+    'Accept': 'application/json',
+    'Content-Type': 'application/json'
+  }
+});
 
 export async function GET() {
   try {
-    const commands = whatsappBot.getCommands();
-    return NextResponse.json({ commands });
-  } catch (error) {
-    console.error('Error getting commands:', error);
+    console.log('[API] GET commands request');
+    
+    const response = await laravelApi.get('/commands');
+    
+    return NextResponse.json({ 
+      commands: response.data.commands || [],
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error: any) {
+    console.error('[API] GET commands error:', error.message);
+    
+    let errorMessage = 'Failed to get commands';
+    let statusCode = 500;
+
+    if (error.code === 'ECONNREFUSED') {
+      errorMessage = 'Laravel server not reachable. Please check if Laravel is running on port 8000.';
+      statusCode = 503;
+    } else if (error.response) {
+      errorMessage = error.response.data?.error || error.message;
+      statusCode = error.response.status;
+    }
+
     return NextResponse.json(
-      { error: 'Failed to get commands' },
-      { status: 500 }
+      { 
+        error: errorMessage,
+        timestamp: new Date().toISOString()
+      },
+      { status: statusCode }
     );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('[API] POST command request');
     const commandData = await request.json();
     
-    const newCommand = whatsappBot.addCommand({
-      trigger: commandData.trigger,
-      response: commandData.response,
-      description: commandData.description,
-      isActive: commandData.isActive ?? true
+    // ✅ Direct call to Laravel, no bot reloading here
+    const response = await laravelApi.post('/commands', {
+      ...commandData,
+      is_active: commandData.isActive
     });
+
+    const newCommand = response.data.command;
+    
+    console.log(`[API] ✅ Command created: ${newCommand.trigger}`);
 
     return NextResponse.json({ 
       message: 'Command added successfully',
-      command: newCommand 
+      command: newCommand,
+      note: 'Command will be available within 10 seconds via auto-refresh',
+      timestamp: new Date().toISOString()
     });
-  } catch (error) {
-    console.error('Error adding command:', error);
+    
+  } catch (error: any) {
+    console.error('[API] POST command error:', error.message);
+    
+    let errorMessage = 'Failed to add command';
+    let statusCode = 500;
+
+    if (error.code === 'ECONNREFUSED') {
+      errorMessage = 'Laravel server not reachable';
+      statusCode = 503;
+    } else if (error.response) {
+      errorMessage = error.response.data?.error || error.message;
+      statusCode = error.response.status;
+    }
+
     return NextResponse.json(
-      { error: 'Failed to add command' },
-      { status: 500 }
+      { 
+        error: errorMessage,
+        timestamp: new Date().toISOString()
+      },
+      { status: statusCode }
     );
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
+    console.log('[API] PUT command request');
     const { trigger, ...updates } = await request.json();
     
-    const updatedCommand = whatsappBot.updateCommand(trigger, updates);
-    
-    if (!updatedCommand) {
-      return NextResponse.json(
-        { error: 'Command not found' },
-        { status: 404 }
-      );
-    }
+    // ✅ Direct call to Laravel, no bot reloading here
+    const response = await laravelApi.put('/commands', {
+      trigger,
+      ...updates,
+      is_active: updates.isActive
+    });
 
+    const updatedCommand = response.data.command;
+    
+    console.log(`[API] ✅ Command updated: ${updatedCommand.trigger}`);
+    
     return NextResponse.json({ 
       message: 'Command updated successfully',
-      command: updatedCommand 
+      command: updatedCommand,
+      note: 'Changes will be available within 10 seconds via auto-refresh',
+      timestamp: new Date().toISOString()
     });
-  } catch (error) {
-    console.error('Error updating command:', error);
+    
+  } catch (error: any) {
+    console.error('[API] PUT command error:', error.message);
+    
+    let errorMessage = 'Failed to update command';
+    let statusCode = 500;
+
+    if (error.code === 'ECONNREFUSED') {
+      errorMessage = 'Laravel server not reachable';
+      statusCode = 503;
+    } else if (error.response) {
+      errorMessage = error.response.data?.error || error.message;
+      statusCode = error.response.status;
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to update command' },
-      { status: 500 }
+      { 
+        error: errorMessage,
+        timestamp: new Date().toISOString()
+      },
+      { status: statusCode }
     );
   }
 }
 
 export async function DELETE(request: NextRequest) {
   try {
+    console.log('[API] DELETE command request');
     const { trigger } = await request.json();
+
+    // ✅ Direct call to Laravel, no bot reloading here
+    const response = await laravelApi.delete('/commands', {
+      data: { trigger }
+    });
     
-    const deleted = whatsappBot.deleteCommand(trigger);
+    console.log(`[API] ✅ Command deleted: ${trigger}`);
+
+    return NextResponse.json({ 
+      message: 'Command deleted successfully',
+      note: 'Changes will be available within 10 seconds via auto-refresh',
+      timestamp: new Date().toISOString()
+    });
     
-    if (!deleted) {
-      return NextResponse.json(
-        { error: 'Command not found' },
-        { status: 404 }
-      );
+  } catch (error: any) {
+    console.error('[API] DELETE command error:', error.message);
+    
+    let errorMessage = 'Failed to delete command';
+    let statusCode = 500;
+
+    if (error.code === 'ECONNREFUSED') {
+      errorMessage = 'Laravel server not reachable';
+      statusCode = 503;
+    } else if (error.response) {
+      errorMessage = error.response.data?.error || error.message;
+      statusCode = error.response.status;
     }
 
-    return NextResponse.json({ message: 'Command deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting command:', error);
     return NextResponse.json(
-      { error: 'Failed to delete command' },
-      { status: 500 }
+      { 
+        error: errorMessage,
+        timestamp: new Date().toISOString()
+      },
+      { status: statusCode }
     );
   }
 }

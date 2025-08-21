@@ -4,9 +4,7 @@ const { createServer } = require('http');
 const next = require('next');
 const { Server: SocketIOServer } = require('socket.io');
 const path = require('path');
-
-// Import WhatsApp Bot - perlu kompilasi TypeScript dulu
-let whatsappBot;
+const { whatsappBot } = require('./src/lib/whatsapp');
 
 const dev = process.env.NODE_ENV !== 'production';
 const app = next({ dev });
@@ -18,27 +16,16 @@ async function startServer() {
   try {
     console.log('🔄 Preparing Next.js...');
     await app.prepare();
-
-    // Import WhatsAppBot setelah Next.js ready (untuk handle TypeScript)
-    try {
-      const whatsappModule = await import('./src/lib/whatsapp.js');
-      whatsappBot = whatsappModule.whatsappBot;
-    } catch (error) {
-      console.error('❌ Failed to import WhatsApp Bot:', error);
-      console.log('💡 Make sure to build TypeScript files first or use .js extension');
-      process.exit(1);
-    }
-
+    
     const expressApp = express();
     const server = createServer(expressApp);
 
-    // Socket.IO dengan konfigurasi yang lebih lengkap
+    // Socket.IO dengan konfigurasi yang diperlukan
     const io = new SocketIOServer(server, {
       cors: {
-        origin: dev ? "http://localhost:3000" : false,
+        origin: "*", // Izinkan semua origin untuk pengembangan
         methods: ["GET", "POST"]
       },
-      // Gunakan path default /socket.io 
       transports: ['websocket', 'polling'],
       allowEIO3: true
     });
@@ -50,7 +37,7 @@ async function startServer() {
     // Simpan io ke global untuk akses dari WhatsAppBot
     global.io = io;
 
-    // Initialize WhatsApp Bot (akan generate QR code)
+    // Initialize WhatsApp Bot
     console.log('🔄 Initializing WhatsApp Bot...');
     whatsappBot.initialize().then(() => {
       console.log('✅ WhatsApp Bot initialized');
@@ -71,6 +58,41 @@ async function startServer() {
         socket.emit('whatsapp:qr', status.qrCode);
       }
 
+      // Handle bot start/disconnect actions
+      socket.on('whatsapp:start', async () => {
+        try {
+          console.log('[SOCKET] Starting WhatsApp bot...');
+          await whatsappBot.initialize();
+          socket.emit('whatsapp:status', whatsappBot.getStatus());
+        } catch (error) {
+          console.error('[SOCKET] Error starting bot:', error);
+          socket.emit('whatsapp:error', { message: error.message });
+        }
+      });
+      
+      socket.on('whatsapp:disconnect', async () => {
+        try {
+          console.log('[SOCKET] Disconnecting WhatsApp bot...');
+          await whatsappBot.disconnect();
+          socket.emit('whatsapp:status', whatsappBot.getStatus());
+        } catch (error) {
+          console.error('[SOCKET] Error disconnecting bot:', error);
+          socket.emit('whatsapp:error', { message: error.message });
+        }
+      });
+
+      // Handle manual command reload request
+      socket.on('whatsapp:reload-commands', async () => {
+        try {
+          console.log('[SOCKET] Manual command reload requested...');
+          await whatsappBot.loadCommandsFromApi();
+          socket.emit('whatsapp:commands-reloaded', { success: true });
+        } catch (error) {
+          console.error('[SOCKET] Error reloading commands:', error);
+          socket.emit('whatsapp:commands-reloaded', { success: false, message: error.message });
+        }
+      });
+
       // Handle manual message sending dari client
       socket.on('send:message', async (data) => {
         try {
@@ -88,32 +110,15 @@ async function startServer() {
       });
     });
 
-    // Middleware untuk parsing JSON
-    expressApp.use(express.json());
-
-    // API Routes untuk WhatsApp Bot
-    expressApp.get('/api/whatsapp/status', (req, res) => {
-      res.json(whatsappBot.getStatus());
+    // Handle API Routes
+    expressApp.all('/api/*', (req, res) => {
+      return handle(req, res);
     });
-
-    expressApp.get('/api/whatsapp/commands', (req, res) => {
-      res.json(whatsappBot.getCommands());
-    });
-
-    expressApp.post('/api/whatsapp/send', async (req, res) => {
-      try {
-        const { number, message } = req.body;
-        const result = await whatsappBot.sendMessage(number, message);
-        res.json({ success: true, result });
-      } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-      }
-    });
-
+    
     // Serve static files
     expressApp.use('/public', express.static(path.join(__dirname, 'public')));
 
-    // Handle Next.js routes
+    // Handle Next.js pages routes
     expressApp.all('*', (req, res) => {
       return handle(req, res);
     });

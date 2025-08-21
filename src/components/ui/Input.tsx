@@ -12,32 +12,32 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="space-y-1">
         {label && (
-          <label className="block text-sm font-medium text-gray-700">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
             {label}
           </label>
         )}
-        <div className="relative">
+        <div className="relative flex items-center">
           {icon && (
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <div className="absolute left-3 flex items-center justify-center text-gray-400">
               {icon}
             </div>
           )}
           <input
             ref={ref}
             className={`
-              block w-full rounded-lg border-gray-300 shadow-sm
-              focus:ring-whatsapp-primary focus:border-whatsapp-primary
-              disabled:bg-gray-50 disabled:text-gray-500
-              ${icon ? 'pl-10' : 'px-3'}
-              py-2 text-sm
-              ${error ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : ''}
+              block w-full rounded-lg border border-gray-300
+              disabled:bg-gray-100 disabled:text-gray-500
+              ${icon ? 'pl-10 pr-3' : 'px-3'}
+              py-2.5 text-sm
+              transition-all duration-200
+              ${error ? 'border-red-500 focus:ring-red-500' : ''}
               ${className || ''}
             `}
             {...props}
           />
         </div>
         {error && (
-          <p className="text-sm text-red-600">{error}</p>
+          <p className="text-sm text-red-600 mt-1">{error}</p>
         )}
       </div>
     );
@@ -54,26 +54,27 @@ interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
   ({ label, error, className, ...props }, ref) => {
     return (
-      <div className="space-y-1">
+      <div className="space-y-1 w-full">
         {label && (
-          <label className="block text-sm font-medium text-gray-700">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
             {label}
           </label>
         )}
         <textarea
           ref={ref}
           className={`
-            block w-full rounded-lg border-gray-300 shadow-sm
-            focus:ring-whatsapp-primary focus:border-whatsapp-primary
-            disabled:bg-gray-50 disabled:text-gray-500
-            px-3 py-2 text-sm
-            ${error ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : ''}
+            block w-full rounded-lg border border-gray-300
+            focus:ring-2 focus:ring-purple-500 focus:border-transparent
+            disabled:bg-gray-100 disabled:text-gray-500
+            px-3 py-2.5 text-sm
+            transition-all duration-200
+            ${error ? 'border-red-500 focus:ring-red-500' : ''}
             ${className || ''}
           `}
           {...props}
         />
         {error && (
-          <p className="text-sm text-red-600">{error}</p>
+          <p className="text-sm text-red-600 mt-1">{error}</p>
         )}
       </div>
     );

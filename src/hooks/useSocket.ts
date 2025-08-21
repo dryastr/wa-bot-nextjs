@@ -1,7 +1,7 @@
 // src/hooks/useSocket.ts
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import io, { Socket } from 'socket.io-client';
 import { WhatsAppStatus, Message } from '@/lib/types';
 
@@ -10,6 +10,8 @@ interface UseSocketReturn {
   isConnected: boolean;
   whatsappStatus: WhatsAppStatus;
   messages: Message[];
+  commandCount: number;
+  reloadCommands: () => Promise<boolean>;
 }
 
 export function useSocket(): UseSocketReturn {
@@ -22,18 +24,52 @@ export function useSocket(): UseSocketReturn {
     lastSeen: null
   });
   const [messages, setMessages] = useState<Message[]>([]);
+  const [commandCount, setCommandCount] = useState(0);
+
+  // ✅ Manual command reload function
+  const reloadCommands = useCallback(async (): Promise<boolean> => {
+    return new Promise((resolve) => {
+      if (!socket || !isConnected) {
+        console.warn('❌ Socket not connected, cannot reload commands');
+        resolve(false);
+        return;
+      }
+
+      console.log('🔄 Requesting manual command reload...');
+
+      // Set up one-time listener for reload result
+      const timeoutId = setTimeout(() => {
+        console.warn('⏰ Command reload timeout');
+        resolve(false);
+      }, 15000); // 15 second timeout
+
+      socket.once('whatsapp:command-reload-result', (result) => {
+        clearTimeout(timeoutId);
+        console.log('✅ Command reload result:', result);
+        
+        if (result.success) {
+          setCommandCount(result.commandCount || 0);
+        }
+        
+        resolve(result.success);
+      });
+
+      // Emit reload request
+      socket.emit('whatsapp:reload-commands');
+    });
+  }, [socket, isConnected]);
 
   useEffect(() => {
-    // ✅ PERBAIKAN: Gunakan path default /socket.io (sama dengan server)
+    // ✅ Use default socket.io path
     const socketInstance = io(process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3000', {
-      // Hapus path kustom, biarkan menggunakan default
+      // Remove custom path, let it use default /socket.io/
       transports: ['websocket', 'polling'],
       forceNew: true,
       reconnection: true,
       timeout: 60000,
       reconnectionDelay: 1000,
       reconnectionAttempts: 5,
-      // maxReconnectionAttempts: 5
+      // upgradeTimeout: 30000,
     });
 
     socketInstance.on('connect', () => {
@@ -88,6 +124,7 @@ export function useSocket(): UseSocketReturn {
         lastSeen: null
       });
       setMessages([]); // Clear messages on disconnect
+      setCommandCount(0); // Clear command count
     });
 
     socketInstance.on('whatsapp:message', (message: Message) => {
@@ -95,10 +132,36 @@ export function useSocket(): UseSocketReturn {
       setMessages(prev => [message, ...prev].slice(0, 100)); // Keep last 100 messages
     });
 
+    // ✅ Listen for command updates
+    socketInstance.on('whatsapp:commands-updated', (data: any) => {
+      console.log('🔄 Commands updated:', data);
+      setCommandCount(data.count || 0);
+    });
+
+    socketInstance.on('whatsapp:commands-reloaded', (data: any) => {
+      console.log('🔄 Commands reloaded:', data);
+      if (data.success) {
+        setCommandCount(data.count || 0);
+      }
+    });
+
+    // ✅ Handle ping/pong for connection health
+    socketInstance.on('pong', (data: any) => {
+      console.log('🏓 Pong received:', data);
+    });
+
+    // ✅ Send ping every 30 seconds to keep connection alive
+    const pingInterval = setInterval(() => {
+      if (socketInstance.connected) {
+        socketInstance.emit('ping');
+      }
+    }, 30000);
+
     setSocket(socketInstance);
 
     return () => {
       console.log('🔌 Cleaning up socket connection');
+      clearInterval(pingInterval);
       socketInstance.disconnect();
     };
   }, []);
@@ -107,6 +170,8 @@ export function useSocket(): UseSocketReturn {
     socket,
     isConnected,
     whatsappStatus,
-    messages
+    messages,
+    commandCount,
+    reloadCommands
   };
 }

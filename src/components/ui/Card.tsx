@@ -1,5 +1,6 @@
 // src/components/ui/Card.tsx
 import { HTMLAttributes, ReactNode } from 'react';
+import { cn } from '../../lib/utils';
 
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
@@ -8,7 +9,10 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
 export function Card({ children, className, ...props }: CardProps) {
   return (
     <div
-      className={`bg-white rounded-lg shadow-md border border-gray-200 ${className || ''}`}
+      className={cn(
+        'rounded-2xl border bg-white shadow-xl shadow-gray-100 transition-all duration-300',
+        className
+      )}
       {...props}
     >
       {children}
@@ -23,7 +27,10 @@ interface CardHeaderProps extends HTMLAttributes<HTMLDivElement> {
 export function CardHeader({ children, className, ...props }: CardHeaderProps) {
   return (
     <div
-      className={`px-6 py-4 border-b border-gray-200 ${className || ''}`}
+      className={cn(
+        'flex items-center justify-between border-b border-gray-100 p-6',
+        className
+      )}
       {...props}
     >
       {children}
@@ -37,7 +44,7 @@ interface CardContentProps extends HTMLAttributes<HTMLDivElement> {
 
 export function CardContent({ children, className, ...props }: CardContentProps) {
   return (
-    <div className={`px-6 py-4 ${className || ''}`} {...props}>
+    <div className={cn('p-6', className)} {...props}>
       {children}
     </div>
   );
@@ -49,7 +56,13 @@ interface CardTitleProps extends HTMLAttributes<HTMLHeadingElement> {
 
 export function CardTitle({ children, className, ...props }: CardTitleProps) {
   return (
-    <h3 className={`text-lg font-semibold text-gray-900 ${className || ''}`} {...props}>
+    <h3
+      className={cn(
+        'text-xl font-bold text-gray-800 tracking-tight',
+        className
+      )}
+      {...props}
+    >
       {children}
     </h3>
   );

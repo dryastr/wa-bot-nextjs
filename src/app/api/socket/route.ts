@@ -1,16 +1,15 @@
 // src/app/api/socketio/route.ts
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
-  // Socket.IO will be handled by the custom server
-  return new Response('Socket.IO endpoint - use custom server for full functionality', { 
-    status: 200,
-    headers: {
-      'Content-Type': 'text/plain'
-    }
+  return NextResponse.json({ 
+    message: 'Socket.IO handled by custom server on /api/socket',
+    endpoint: '/api/socket'
   });
 }
 
 export async function POST(request: NextRequest) {
-  return new Response('Socket.IO POST endpoint', { status: 200 });
+  return NextResponse.json({ 
+    message: 'Use Socket.IO endpoint /api/socket for real-time communication' 
+  });
 }
